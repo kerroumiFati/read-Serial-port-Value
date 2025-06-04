@@ -1,59 +1,114 @@
-📦 Projet : Lecture des données du port série avec Electron
-Cette application Electron permet de lire des données à partir d’un port série (par exemple : Arduino connecté via câble USB) et de les afficher dynamiquement dans une interface HTML.
-Elle utilise également des notifications système et la communication IPC (Inter-Process Communication) entre le processus principal et le processus de rendu.
+# 📦 Projet : Lecture des données du port série avec Electron
 
-🧱 Structure principale
-main.js : Fichier principal du processus main d’Electron, responsable de la création de la fenêtre, de la gestion du port série, des notifications, et des canaux IPC.
+Cette application **Electron** permet de lire des données à partir d’un **port série** (ex. Arduino) et de les afficher dans une interface HTML.  
+Elle utilise également les **notifications système** et la **communication IPC (Inter-Process Communication)** entre le processus principal (main) et le processus de rendu (renderer).
 
-⚠️ Un fichier preload.js est utilisé pour permettre une communication sécurisée entre le renderer (frontend) et le main process, tout en gardant l'isolation de contexte activée (contextIsolation: true).
+---
 
-🧵 Lecture des données du port série
-L’application écoute les données du port COM4 avec une vitesse de transmission (baudRate) de 9600.
-Assurez-vous que votre périphérique (Arduino, etc.) est bien connecté sur le port COM4, ou modifiez la valeur dans le code si nécessaire :
+## 🧱 Structure principale
 
+- **`main.js`** : Gère la fenêtre principale, la lecture du port série, les notifications, et la communication IPC.
+- **`preload.js`** : Sert de pont sécurisé entre le processus de rendu et le processus principal grâce à l’option `contextIsolation`.
+- **`index.html`** : Interface utilisateur.
+- **`scripte.js`** : Script chargé en preload pour activer la communication sécurisée.
+
+---
+
+## 🧵 Lecture des données du port série
+
+L’application utilise la librairie `serialport` pour lire les données depuis un port série.
+
+### ⚙️ Configuration
+
+```js
 const port = new SerialPort({
-  path: 'COM4',
-  baudRate: 9600
+  path: 'COM4',     // Assurez-vous que votre câble série est connecté à ce port
+  baudRate: 9600    // Vitesse de transmission
 });
-Les données reçues sont traitées via un parser en utilisant le délimiteur \r\n 
-const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+```
 
-Elles sont ensuite envoyées vers le renderer via IPC :
+> 🔧 Si vous utilisez un autre port que `COM4`, modifiez la valeur dans le code.
+
+Les données reçues sont lues ligne par ligne avec un parser :
+
+```js
+const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+```
+
+Et envoyées au renderer via IPC :
+
+```js
 parser.on('data', (data) => {
   mainWindow.webContents.send('serial-data', data);
 });
+```
 
-🔔 Notification système
-L'application permet d'afficher une notification système native depuis le processus de rendu.
-Dans le main.js, un canal IPC reçoit le message et déclenche la notification :
+---
 
+## 🔔 Notification système
+
+L’application peut afficher des notifications depuis le processus renderer via une commande IPC.
+
+### Côté main process (`main.js`)
+
+```js
 ipcMain.on('notify', (_, message) => {
   new Notification({ title: 'Notification', body: message }).show();
 });
+```
 
-ipcMain.on('notify', (_, message) => {
-  new Notification({ title: 'Notification', body: message }).show();
-});
+### Côté renderer (`preload.js` ou script HTML)
 
-Dans preload.js ou le renderer (frontend), utilisez :
-ipcRenderer.send('notify', 'Votre message');
+```js
+const { ipcRenderer } = require('electron');
+ipcRenderer.send('notify', 'Message à afficher');
+```
 
-📡 Communication IPC (Main → Renderer)
-L’application implémente un appel IPC permettant au renderer de demander des valeurs au main process :
+---
 
+## 📡 Communication IPC
+
+L'application permet de récupérer une valeur simple depuis le processus principal :
+
+### Côté main process
+
+```js
 ipcMain.handle('products', () => {
   return "hammada";
 });
+```
 
-Côté renderer, utilisez :
+### Côté renderer
+
+```js
 const value = await ipcRenderer.invoke('products');
+console.log(value); // Affiche "hammada"
+```
 
-✅ Pour démarrer
-1. Installez les dépendances :
+---
 
+## ✅ Pour démarrer
+
+### 1. Installer les dépendances
+
+```bash
 npm install
+```
 
-2. Lancez l’application en mode développement :
+### 2. Lancer l’application en développement
+
+```bash
 npm start
+```
 
+> ℹ️ L'application utilise `electron-reload` pour recharger automatiquement la fenêtre à chaque modification de fichier.
 
+---
+
+## 🧪 Technologies utilisées
+
+- [Electron](https://www.electronjs.org/)
+- [serialport](https://serialport.io/)
+- HTML, JavaScript
+
+---
